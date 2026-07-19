@@ -100,7 +100,7 @@ $result = mysqli_query($conn, "SELECT * FROM donors $where ORDER BY donor_id ASC
                 <td><?= $row['last_donation_date'] ?></td>
                 <td>
                     <a href="edit_donor.php?id=<?= $row['donor_id'] ?>" class="btn edit">Edit</a>
-                    <a href="donors.php?delete=<?= $row['donor_id'] ?>" class="btn delete"                     onclick="return confirm('Are you sure?')">Delete</a>
+                    <a href="donors.php?delete=<?= $row['donor_id'] ?>" class="btn delete" onclick="return confirm('Are you sure?')">Delete</a>
                 </td>
             </tr>
             <?php endwhile; ?>
