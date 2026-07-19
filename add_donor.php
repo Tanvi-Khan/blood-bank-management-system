@@ -58,7 +58,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </select>
         <input type="text" name="phone" placeholder="Phone Number" required>
         <input type="email" name="email" placeholder="Email (optional)">
-        <input type="text" name="last_donation_date" placeholder="Last Donation Date (optional)"         onfocus="(this.type='date')" onblur="if(!this.value)this.type='text'">
+        <input type="text" name="last_donation_date" placeholder="Last Donation Date (optional)" onfocus="(this.type='date')" onblur="if(!this.value)this.type='text'">
         <button type="submit">Add Donor</button>
     </form>
 
