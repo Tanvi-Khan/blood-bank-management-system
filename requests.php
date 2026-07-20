@@ -6,16 +6,33 @@ $message = "";
 // Approve request
 if (isset($_GET['approve'])) {
     $id = $_GET['approve'];
-    
-    $req = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM blood_requests WHERE request_id=$id"));
+
+    $stmt = $conn->prepare("SELECT * FROM blood_requests WHERE request_id=?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $req = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
     $blood_group = $req['blood_group'];
     $quantity = $req['quantity'];
-    
-    $stock = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM blood_stock WHERE blood_group='$blood_group'"));
-    
+
+    $stmt = $conn->prepare("SELECT * FROM blood_stock WHERE blood_group=?");
+    $stmt->bind_param("s", $blood_group);
+    $stmt->execute();
+    $stock = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
     if ($stock['quantity'] >= $quantity) {
-        mysqli_query($conn, "UPDATE blood_requests SET status='Approved' WHERE request_id=$id");
-        mysqli_query($conn, "UPDATE blood_stock SET quantity=quantity-$quantity, last_updated=CURDATE() WHERE blood_group='$blood_group'");
+        $stmt = $conn->prepare("UPDATE blood_requests SET status='Approved' WHERE request_id=?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $stmt->close();
+
+        $stmt = $conn->prepare("UPDATE blood_stock SET quantity=quantity-?, last_updated=CURDATE() WHERE blood_group=?");
+        $stmt->bind_param("is", $quantity, $blood_group);
+        $stmt->execute();
+        $stmt->close();
+
         $message = "<p class='success'>✅ Request approved! Stock updated.</p>";
     } else {
         $message = "<p class='error'>❌ Not enough blood stock available! Current stock: " . $stock['quantity'] . " unit(s).</p>";
@@ -25,7 +42,10 @@ if (isset($_GET['approve'])) {
 // Delete request
 if (isset($_GET['delete'])) {
     $id = $_GET['delete'];
-    mysqli_query($conn, "DELETE FROM blood_requests WHERE request_id=$id");
+    $stmt = $conn->prepare("DELETE FROM blood_requests WHERE request_id=?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $stmt->close();
     header("Location: requests.php");
 }
 
@@ -36,25 +56,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $quantity = $_POST['quantity'];
     $request_date = date('Y-m-d');
 
-    $sql = "INSERT INTO blood_requests (patient_name, blood_group, quantity, status, request_date) 
-            VALUES ('$patient_name', '$blood_group', '$quantity', 'Pending', '$request_date')";
+    $stmt = $conn->prepare("INSERT INTO blood_requests (patient_name, blood_group, quantity, status, request_date) VALUES (?, ?, ?, 'Pending', ?)");
+    $stmt->bind_param("ssis", $patient_name, $blood_group, $quantity, $request_date);
 
-    if (mysqli_query($conn, $sql)) {
+    if ($stmt->execute()) {
         $message = "<p class='success'>✅ Blood request submitted successfully!</p>";
     } else {
-        $message = "<p class='error'>❌ Error: " . mysqli_error($conn) . "</p>";
+        $message = "<p class='error'>❌ Error: " . $stmt->error . "</p>";
     }
+    $stmt->close();
 }
 
 // Filter
 $filter_group = isset($_GET['blood_group']) ? $_GET['blood_group'] : "";
 $filter_status = isset($_GET['status']) ? $_GET['status'] : "";
 
-$where = "WHERE 1=1";
-if ($filter_group != "") $where .= " AND blood_group='$filter_group'";
-if ($filter_status != "") $where .= " AND status='$filter_status'";
-
-$requests = mysqli_query($conn, "SELECT * FROM blood_requests $where ORDER BY request_id ASC");
+if ($filter_group != "" && $filter_status != "") {
+    $stmt = $conn->prepare("SELECT * FROM blood_requests WHERE blood_group=? AND status=? ORDER BY request_id ASC");
+    $stmt->bind_param("ss", $filter_group, $filter_status);
+} elseif ($filter_group != "") {
+    $stmt = $conn->prepare("SELECT * FROM blood_requests WHERE blood_group=? ORDER BY request_id ASC");
+    $stmt->bind_param("s", $filter_group);
+} elseif ($filter_status != "") {
+    $stmt = $conn->prepare("SELECT * FROM blood_requests WHERE status=? ORDER BY request_id ASC");
+    $stmt->bind_param("s", $filter_status);
+} else {
+    $stmt = $conn->prepare("SELECT * FROM blood_requests ORDER BY request_id ASC");
+}
+$stmt->execute();
+$requests = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -145,7 +175,7 @@ $requests = mysqli_query($conn, "SELECT * FROM blood_requests $where ORDER BY re
     </form>
 
     <?php if($filter_group != "" || $filter_status != ""): ?>
-    <p class="result-info"><?= mysqli_num_rows($requests) ?> request(s) found</p>
+    <p class="result-info"><?= $requests->num_rows ?> request(s) found</p>
     <?php endif; ?>
 
     <table>
@@ -158,12 +188,12 @@ $requests = mysqli_query($conn, "SELECT * FROM blood_requests $where ORDER BY re
             <th>Date</th>
             <th>Action</th>
         </tr>
-        <?php $i = 1; if(mysqli_num_rows($requests) > 0): ?>
-            <?php while($row = mysqli_fetch_assoc($requests)): ?>
+        <?php $i = 1; if($requests->num_rows > 0): ?>
+            <?php while($row = $requests->fetch_assoc()): ?>
             <tr>
                 <td><?= $i++ ?></td>
-                <td><?= $row['patient_name'] ?></td>
-                <td><?= $row['blood_group'] ?></td>
+                <td><?= htmlspecialchars($row['patient_name']) ?></td>
+                <td><?= htmlspecialchars($row['blood_group']) ?></td>
                 <td><?= $row['quantity'] ?></td>
                 <td class="<?= strtolower($row['status']) ?>"><?= $row['status'] ?></td>
                 <td><?= $row['request_date'] ?></td>
