@@ -6,17 +6,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $stock_id = $_POST['stock_id'];
     $quantity = $_POST['quantity'];
 
-    $sql = "UPDATE blood_stock SET quantity='$quantity', last_updated=CURDATE() 
-            WHERE stock_id=$stock_id";
+    $stmt = $conn->prepare("UPDATE blood_stock SET quantity=?, last_updated=CURDATE() WHERE stock_id=?");
+    $stmt->bind_param("ii", $quantity, $stock_id);
 
-    if (mysqli_query($conn, $sql)) {
+    if ($stmt->execute()) {
         $success = "Stock updated successfully!";
     } else {
-        $error = "Error: " . mysqli_error($conn);
+        $error = "Error: " . $stmt->error;
     }
+    $stmt->close();
 }
 
-$stocks = mysqli_query($conn, "SELECT * FROM blood_stock ORDER BY blood_group");
+$stmt = $conn->prepare("SELECT * FROM blood_stock ORDER BY blood_group");
+$stmt->execute();
+$stocks = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -51,8 +54,8 @@ $stocks = mysqli_query($conn, "SELECT * FROM blood_stock ORDER BY blood_group");
         <a href="requests.php">Requests</a>
     </div>
 
-    <?php if(isset($success)) echo "<p class='success'>$success</p>"; ?>
-    <?php if(isset($error)) echo "<p class='error'>$error</p>"; ?>
+    <?php if(isset($success)) echo "<p class='success'>✅ $success</p>"; ?>
+    <?php if(isset($error)) echo "<p class='error'>❌ $error</p>"; ?>
 
     <table>
         <tr>
@@ -62,9 +65,9 @@ $stocks = mysqli_query($conn, "SELECT * FROM blood_stock ORDER BY blood_group");
             <th>Last Updated</th>
             <th>Update</th>
         </tr>
-        <?php while($row = mysqli_fetch_assoc($stocks)): ?>
+        <?php while($row = $stocks->fetch_assoc()): ?>
         <tr>
-            <td><strong><?= $row['blood_group'] ?></strong></td>
+            <td><strong><?= htmlspecialchars($row['blood_group']) ?></strong></td>
             <td><?= $row['quantity'] ?></td>
             <td class="<?= $row['quantity'] > 0 ? 'ok' : 'low' ?>">
                 <?= $row['quantity'] > 0 ? 'Available' : 'Not Available' ?>
