@@ -8,14 +8,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
     $last_donation_date = $_POST['last_donation_date'];
 
-    $sql = "INSERT INTO donors (name, blood_group, phone, email, last_donation_date) 
-            VALUES ('$name', '$blood_group', '$phone', '$email', '$last_donation_date')";
+    $stmt = $conn->prepare("INSERT INTO donors (name, blood_group, phone, email, last_donation_date) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssss", $name, $blood_group, $phone, $email, $last_donation_date);
 
-    if (mysqli_query($conn, $sql)) {
+    if ($stmt->execute()) {
         $success = "Donor added successfully!";
     } else {
-        $error = "Error: " . mysqli_error($conn);
+        $error = "Error: " . $stmt->error;
     }
+    $stmt->close();
 }
 ?>
 
