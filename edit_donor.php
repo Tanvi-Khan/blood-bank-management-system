@@ -2,7 +2,13 @@
 include 'config.php';
 
 $id = $_GET['id'];
-$donor = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM donors WHERE donor_id=$id"));
+
+// Fetch donor
+$stmt = $conn->prepare("SELECT * FROM donors WHERE donor_id=?");
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$donor = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $name = $_POST['name'];
@@ -11,15 +17,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
     $last_donation_date = $_POST['last_donation_date'];
 
-    $sql = "UPDATE donors SET name='$name', blood_group='$blood_group', 
-            phone='$phone', email='$email', last_donation_date='$last_donation_date' 
-            WHERE donor_id=$id";
+    $stmt = $conn->prepare("UPDATE donors SET name=?, blood_group=?, phone=?, email=?, last_donation_date=? WHERE donor_id=?");
+    $stmt->bind_param("sssssi", $name, $blood_group, $phone, $email, $last_donation_date, $id);
 
-    if (mysqli_query($conn, $sql)) {
+    if ($stmt->execute()) {
         header("Location: donors.php");
     } else {
-        $error = "Error: " . mysqli_error($conn);
+        $error = "Error: " . $stmt->error;
     }
+    $stmt->close();
 }
 ?>
 
@@ -46,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php if(isset($error)) echo "<p class='error'>$error</p>"; ?>
 
     <form method="POST">
-        <input type="text" name="name" value="<?= $donor['name'] ?>" required>
+        <input type="text" name="name" value="<?= htmlspecialchars($donor['name']) ?>" required>
         <select name="blood_group" required>
             <?php
             $groups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
@@ -56,9 +62,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             ?>
         </select>
-        <input type="text" name="phone" value="<?= $donor['phone'] ?>" required>
-        <input type="email" name="email" value="<?= $donor['email'] ?>">
-        <input type="date" name="last_donation_date" value="<?= $donor['last_donation_date'] ?>">
+        <input type="text" name="phone" value="<?= htmlspecialchars($donor['phone']) ?>" required>
+        <input type="email" name="email" value="<?= htmlspecialchars($donor['email']) ?>">
+        <input type="text" name="last_donation_date" value="<?= htmlspecialchars($donor['last_donation_date']) ?>" onfocus="(this.type='date')" onblur="if(!this.value)this.type='text'">
         <button type="submit">Update Donor</button>
     </form>
 
